@@ -524,5 +524,6 @@ while True:
         TEXT = best_res['Altcoin'] +' '+ str(best_res['Day'][0]).replace('/', ',') + ' --> %0.3f'%best_res['Buy']
         sendMail(FROM,TO,SUBJECT,TEXT)
         
-        
-    time.sleep(3600)
+
+    random_sleep_time = np.random.rand()*3600    	
+    time.sleep(random_sleep_time)
