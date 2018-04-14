@@ -29,9 +29,9 @@ import smtplib
 import email.mime.multipart
 import email.mime.text
 
-from df2gspread import df2gspread as d2g
-spreadsheet = '/spreadsheets/altcoin_predictions'
-wks_name = 'Sheet1'
+#from df2gspread import df2gspread as d2g
+#spreadsheet = '/spreadsheets/altcoin_predictions'
+#wks_name = 'Sheet1'
 
 from pytrends.request import TrendReq
 
@@ -514,7 +514,7 @@ while True:
         
     df_results = df_results.sort_values(by='Buy', ascending=False)
     
-    d2g.upload(df_results, spreadsheet, wks_name)
+ #   d2g.upload(df_results, spreadsheet, wks_name)
     
     best_res = df_results.iloc[0]    
     if best_res['Buy']>0.7:
@@ -523,3 +523,6 @@ while True:
         SUBJECT = "BitPredict Price Alert!"
         TEXT = best_res['Altcoin'] +' '+ str(best_res['Day'][0]).replace('/', ',') + ' --> %0.3f'%best_res['Buy']
         sendMail(FROM,TO,SUBJECT,TEXT)
+        
+        
+    time.sleep(3600)
