@@ -49,13 +49,27 @@ client = Client(api_key, api_secret)
 # disable panda warning
 pd.options.mode.chained_assignment = None  # default='warn'
 
-binance_coins = ['STRAT', 'VIA', 'GRS', 'BAT', 'BRD',
-                 'BCC', 'XZC', 'SALT', 'TRIG', 'AMB',
-                 'ICX', 'CMT', 'XLM', 'ADX', 'EVX',
-                 'STORJ', 'XEM', 'RLC', 'MCO',
-                 'ETC','XRP', 'LSK', 'XMR',
-                 'ETH', 'ZEC', 'DASH', 'BTS', 'LTC', 'STEEM'] 
-
+start_date = "1 Jan, 2018"  
+interval = Client.KLINE_INTERVAL_1HOUR
+testSize = 100
+predDays = 48
+threshold = 0.5
+performance_threshold = 0.5 
+email_threshold = 0.9
+max_request_delay = 5
+binance_coins = [
+'TRX','XVG','NCASH','MCO','ETH','XRP','XLM','ADA','GRS','NEO'
+,'EOS','ICX','BNB','BCC','STORM','BAT','ONT','NANO','IOTA','LTC','VEN','XMR'
+,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
+#,'CLOAK',
+,'QLC','LINK','SNT','WAVES','BTG','ENJ','BQX','EDO','STRAT','POA','NULS','TRIG'
+,'SALT','STEEM','LEND','VIBE','BCPT','POWR','DGD','ZIL','CMT','WTC','DASH','POE'
+,'LSK','LUN','ENG','ZRX','XEM','ADX','WPR','ARN','ZEC','XZC','PPT','ARK','INS'
+,'CND','RCN','AMB','DLT','VIB','OST','BTS','GAS','BRD','DNT','GTO','HSR','FUN'
+,'CHAT','NAV','LRC','TNB','QSP','REQ','BLZ','KMD','APPC','KNC','AE','BCD','SYS'
+,'RPX','SNGLS','MDA','WABI','FUEL','TNT','VIA','MTH','GXS','EVX','RLC','CDT'
+,'AST','WINGS','YOYO','STORJ','PIVX','SNM','BNT','ICN','RDN','OAX','MANA','MOD'
+]
 
 def sendMail(FROM,TO,SUBJECT,TEXT):
 
@@ -74,7 +88,8 @@ def sendMail(FROM,TO,SUBJECT,TEXT):
 
 def getData(altcoin_data, altcoin, predDays, threshold):
     # selecting the features of the given altcoin
-    df = altcoin_data[altcoin][['time', 'open', 'close', 'high', 'low', 'volume']].astype('float')
+    df = altcoin_data[altcoin][['time', 'open', 'close',
+                     'high', 'low', 'volume']].astype('float')
     
 
     df['bullish'] = (df['open'] < df['close'])*1
@@ -109,9 +124,8 @@ def getData(altcoin_data, altcoin, predDays, threshold):
         if (type(outputs) is pd.Series):
             data[func] = outputs
     
-    n = 150
-    # remove the first n samples
-    data.drop(data.index[0:n])
+
+    data.fillna(method='backfill', inplace=True)
 
     
     
@@ -174,34 +188,31 @@ def preprocess(X, x_today, y, testSize, k):
 
 
 
-
-
 while True:
     altcoin_data = {}
     for altcoin in binance_coins:
+#        print(altcoin)
         coinpair = '{}BTC'.format(altcoin)
-        klines = client.get_historical_klines(coinpair, Client.KLINE_INTERVAL_1HOUR, "1 Jan, 2017")
+        klines = client.get_historical_klines(coinpair, interval, start_date)
         klines_df = pd.DataFrame(klines)
         klines_df.columns = ['time', 'open', 'high', 'low', 'close', 'volume', 'close time',
                          'quote asset volume', 'number of trades', 'taker buy base asset volume',
                          'taker buy quote asset volume', 'ignore']
         klines_df.index = klines_df['time']
         altcoin_data[altcoin] = klines_df
+        random_sleep_time = np.random.rand()*max_request_delay
+        time.sleep(random_sleep_time)
     
     
     
-    
-    testSize = 200
-    predDays = 48
-    threshold = 0.5
     df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 6)),
-                                  columns = ['altcoin', 'days',
-                                             'train_score', 'test_score', 'baseline', 'performance'])
+                                  columns = ['altcoin', 'days', 'train_score',
+                                             'test_score', 'baseline', 'performance'])
     
     classifier = LogisticRegression()
     count = 0
     for coin in binance_coins:
-        print(coin)
+#        print(coin)
         X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
         X, x_today = preprocess(X, x_today, y, testSize, k=20)
         
@@ -241,20 +252,20 @@ while True:
     
         count+=1
         
-    selected_coins = df_results['altcoin'].values[df_results['performance'] > 0]
+    selected_coins = df_results['altcoin'].values[df_results['performance'] > performance_threshold]
     print(df_results)
     
     
-    testSize = 2
+    
     df_results = pd.DataFrame(data=np.zeros(shape=(len(selected_coins), 5)),
                                   columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
     
     classifier = LogisticRegression()
     count = 0
     for coin in selected_coins:
-        print(coin)
+#        print(coin)
         X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
-        X, x_today = preprocess(X, x_today, y, testSize, k=20)
+        X, x_today = preprocess(X, x_today, y, testSize = 2, k=20)
         
     
         classifier.fit(X, y)
@@ -275,16 +286,20 @@ while True:
     
      #   d2g.upload(df_results, spreadsheet, wks_name)
     
-    if len(df_results) > 0:
-        best_res = df_results.iloc[0]    
-        if best_res['Buy']>0.7:
+    if len(df_results) > 3:
+        best_res = df_results.iloc[0]
+        best_res1 = df_results.iloc[1]
+        best_res2 = df_results.iloc[2]
+        best_res3 = df_results.iloc[3]
+        if best_res['Buy']>email_threshold:
             FROM = "arash.asn94@gmail.com"
             TO = "arash.ashrafnejad@gmail.com"
             SUBJECT = "BitPredict Price Alert!"
-            TEXT = best_res['Altcoin'] +' '+ str(best_res['Day'][0]).replace('/', ',') + ' --> %0.3f'%best_res['Buy']
+            TEXT = best_res['Altcoin'] +' '+ str(best_res['Day']).replace('/', ',') + ' --> %0.3f'%best_res['Buy']+'\n'+ \
+            best_res1['Altcoin'] +' '+ str(best_res1['Day']).replace('/', ',') + ' --> %0.3f'%best_res1['Buy']+'\n'+ \
+            best_res2['Altcoin'] +' '+ str(best_res2['Day']).replace('/', ',') + ' --> %0.3f'%best_res2['Buy']+'\n'+ \
+            best_res3['Altcoin'] +' '+ str(best_res3['Day']).replace('/', ',') + ' --> %0.3f'%best_res3['Buy']+'\n'
             sendMail(FROM,TO,SUBJECT,TEXT)
             
     
     print(df_results)
-    random_sleep_time = np.random.rand()*1800   	
-    time.sleep(random_sleep_time)
