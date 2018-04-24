@@ -52,12 +52,12 @@ pd.options.mode.chained_assignment = None  # default='warn'
 start_date = "1 Jan, 2018"  
 interval = Client.KLINE_INTERVAL_1HOUR
 testSize = 100
-predDays = 48
+predDays = 24
 threshold = 0.5
-performance_threshold = 0.5 
+performance_threshold = 0.2
 email_threshold = 0.9
-max_request_delay = 5
-binance_coins = [
+max_request_delay = 1
+binance_coins = [ 'USDT',
 'TRX','XVG','NCASH','MCO','ETH','XRP','XLM','ADA','GRS','NEO'
 ,'EOS','ICX','BNB','BCC','STORM','BAT','ONT','NANO','IOTA','LTC','VEN','XMR'
 ,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
@@ -90,7 +90,11 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     # selecting the features of the given altcoin
     df = altcoin_data[altcoin][['time', 'open', 'close',
                      'high', 'low', 'volume']].astype('float')
-    
+    if altcoin!='USDT':
+        df_btc = altcoin_data['USDT'][['time', 'open', 'close',
+                     'high', 'low', 'volume']].astype('float')
+        
+        
 
     df['bullish'] = (df['open'] < df['close'])*1
 
@@ -128,6 +132,14 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     data.fillna(method='backfill', inplace=True)
 
     
+    if altcoin!='USDT':
+        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
+        # technical indicators
+        for func in functions:
+            outputs = eval(func)(raw_btc)
+    
+            if (type(outputs) is pd.Series):
+                data[func+'_btc'] = outputs
     
     
     features = data.copy()
@@ -192,7 +204,10 @@ while True:
     altcoin_data = {}
     for altcoin in binance_coins:
 #        print(altcoin)
-        coinpair = '{}BTC'.format(altcoin)
+        if altcoin=='USDT':
+            coinpair = "BTCUSDT"
+        else:
+            coinpair = '{}BTC'.format(altcoin)
         klines = client.get_historical_klines(coinpair, interval, start_date)
         klines_df = pd.DataFrame(klines)
         klines_df.columns = ['time', 'open', 'high', 'low', 'close', 'volume', 'close time',
@@ -202,6 +217,7 @@ while True:
         altcoin_data[altcoin] = klines_df
         random_sleep_time = np.random.rand()*max_request_delay
         time.sleep(random_sleep_time)
+    
     
     
     
