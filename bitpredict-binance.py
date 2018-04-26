@@ -51,11 +51,11 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 start_date = "1 Jan, 2018"  
 interval = Client.KLINE_INTERVAL_1HOUR
-testSize = 100
-predDays = 24
+testSize = 200
+predDays = 6
 threshold = 0.5
-performance_threshold = 0.2
-email_threshold = 0.9
+performance_threshold = 0.0
+email_threshold = 0.8
 max_request_delay = 1
 binance_coins = [ 'USDT',
 'TRX','XVG','NCASH','MCO','ETH','XRP','XLM','ADA','GRS','NEO'
@@ -132,14 +132,14 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     data.fillna(method='backfill', inplace=True)
 
     
-    if altcoin!='USDT':
-        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
-        # technical indicators
-        for func in functions:
-            outputs = eval(func)(raw_btc)
-    
-            if (type(outputs) is pd.Series):
-                data[func+'_btc'] = outputs
+#    if altcoin!='USDT':
+#        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
+#        # technical indicators
+#        for func in functions:
+#            outputs = eval(func)(raw_btc)
+#    
+#            if (type(outputs) is pd.Series):
+#                data[func+'_btc'] = outputs
     
     
     features = data.copy()
