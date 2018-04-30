@@ -8,6 +8,7 @@ Created on Wed Apr 18 19:39:43 2018
 
 import os
 import numpy as np
+np.warnings.filterwarnings('ignore')
 import pandas as pd
 import pickle
 
@@ -52,7 +53,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 start_date = "1 Jan, 2018"  
 interval = Client.KLINE_INTERVAL_1HOUR
 testSize = 200
-predDays = 6
+predDays = 12
 threshold = 0.5
 performance_threshold = 0.0
 email_threshold = 0.8
@@ -129,18 +130,20 @@ def getData(altcoin_data, altcoin, predDays, threshold):
             data[func] = outputs
     
 
+    
+    if altcoin!='USDT':
+        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
+        # technical indicators
+        for func in functions:
+            outputs = eval(func)(raw_btc)
+    
+            if (type(outputs) is pd.Series):
+                data[func+'_btc'] = outputs
+                
+                
+                
+   
     data.fillna(method='backfill', inplace=True)
-
-    
-#    if altcoin!='USDT':
-#        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
-#        # technical indicators
-#        for func in functions:
-#            outputs = eval(func)(raw_btc)
-#    
-#            if (type(outputs) is pd.Series):
-#                data[func+'_btc'] = outputs
-    
     
     features = data.copy()
     features.drop(['bullish+'], axis = 1, inplace=True)
@@ -227,61 +230,64 @@ while True:
     
     classifier = LogisticRegression()
     count = 0
+#    for coin in binance_coins:
+##        print(coin)
+#        X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
+#        X, x_today = preprocess(X, x_today, y, testSize, k=20)
+#        
+#        t_start = time.clock()
+#    
+#        train_scores = np.zeros(testSize)
+#        test_scores = np.zeros(testSize)
+#        y_preds = np.zeros(testSize)
+#        for i in range(testSize):
+#            X_train = X[0:-(i+1), :]
+#            y_train = y[0:-(i+1)]
+#    
+#            X_test = X[-(i+1), :].reshape(1, -1)
+#            y_test = y[-(i+1)].reshape(1, -1)
+#    
+#            classifier.fit(X_train, y_train)
+#            train_scores[i] = classifier.score(X_train, y_train)
+#            test_scores[i] = classifier.score(X_test, y_test)
+#            y_preds[i] = classifier.predict(X_test)
+#    
+#        t_end = time.clock()
+#        t_diff = t_end - t_start
+#    
+#        df_results.loc[count,'altcoin'] = coin
+#        df_results.loc[count,'days'] = size
+#        df_results.loc[count,'train_score'] = np.mean(train_scores)
+#        df_results.loc[count,'test_score'] = np.mean(test_scores)
+#        df_results.loc[count,'time'] = t_diff
+#    
+#    
+#        y_test = y[testSize:]
+#        baseline = np.sum(y_test==np.argmax([np.sum(y_test==0),
+#                                             np.sum(y_test==1)]))/np.size(y_test)
+#        df_results.loc[count,'baseline'] = baseline
+#        
+#        df_results.loc[count,'performance'] = (np.mean(test_scores) - baseline)/(1 - baseline)
+#    
+#        count+=1
+#        
+#    selected_coins = df_results['altcoin'].values[df_results['performance'] > performance_threshold]
+#    print(df_results)
+#    
+    
+    
+#    df_results = pd.DataFrame(data=np.zeros(shape=(len(selected_coins), 5)),
+#                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
+    
+    df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 5)),
+                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
+    classifier = LogisticRegression()
+    count = 0
+#    for coin in selected_coins:
     for coin in binance_coins:
 #        print(coin)
         X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
-        X, x_today = preprocess(X, x_today, y, testSize, k=20)
-        
-        t_start = time.clock()
-    
-        train_scores = np.zeros(testSize)
-        test_scores = np.zeros(testSize)
-        y_preds = np.zeros(testSize)
-        for i in range(testSize):
-            X_train = X[0:-(i+1), :]
-            y_train = y[0:-(i+1)]
-    
-            X_test = X[-(i+1), :].reshape(1, -1)
-            y_test = y[-(i+1)].reshape(1, -1)
-    
-            classifier.fit(X_train, y_train)
-            train_scores[i] = classifier.score(X_train, y_train)
-            test_scores[i] = classifier.score(X_test, y_test)
-            y_preds[i] = classifier.predict(X_test)
-    
-        t_end = time.clock()
-        t_diff = t_end - t_start
-    
-        df_results.loc[count,'altcoin'] = coin
-        df_results.loc[count,'days'] = size
-        df_results.loc[count,'train_score'] = np.mean(train_scores)
-        df_results.loc[count,'test_score'] = np.mean(test_scores)
-        df_results.loc[count,'time'] = t_diff
-    
-    
-        y_test = y[testSize:]
-        baseline = np.sum(y_test==np.argmax([np.sum(y_test==0),
-                                             np.sum(y_test==1)]))/np.size(y_test)
-        df_results.loc[count,'baseline'] = baseline
-        
-        df_results.loc[count,'performance'] = (np.mean(test_scores) - baseline)/(1 - baseline)
-    
-        count+=1
-        
-    selected_coins = df_results['altcoin'].values[df_results['performance'] > performance_threshold]
-    print(df_results)
-    
-    
-    
-    df_results = pd.DataFrame(data=np.zeros(shape=(len(selected_coins), 5)),
-                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
-    
-    classifier = LogisticRegression()
-    count = 0
-    for coin in selected_coins:
-#        print(coin)
-        X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
-        X, x_today = preprocess(X, x_today, y, testSize = 2, k=20)
+        X, x_today = preprocess(X, x_today, y, testSize = 2, k=30)
         
     
         classifier.fit(X, y)
