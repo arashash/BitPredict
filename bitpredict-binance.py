@@ -277,8 +277,8 @@ while True:
 #    df_results = pd.DataFrame(data=np.zeros(shape=(len(selected_coins), 5)),
 #                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
     
-    df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 5)),
-                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
+    df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 3)),
+                                  columns = ['Altcoin', 'Day', 'Buy'])
     classifier = LogisticRegression()
     count = 0
 #    for coin in selected_coins:
@@ -295,9 +295,7 @@ while True:
     
         df_results.loc[count,'Altcoin'] = coin
         df_results.loc[count,'Day'] = datetime.fromtimestamp(today/1000).strftime('%Y-%m-%d %H:%M') 
-        df_results.loc[count,'Sell'] = probs[0][0]
         df_results.loc[count,'Buy'] = probs[0][1]
-        df_results.loc[count,'Prediction']
     
     
         count+=1
