@@ -31,9 +31,9 @@ import smtplib
 import email.mime.multipart
 import email.mime.text
 
-#from df2gspread import df2gspread as d2g
-#spreadsheet = '/spreadsheets/altcoin_predictions'
-#wks_name = 'Sheet1'
+from df2gspread import df2gspread as d2g
+spreadsheet = '/spreadsheets/altcoin_predictions'
+wks_name = 'Sheet1'
 
 #from pytrends.request import TrendReq
 
@@ -54,7 +54,7 @@ start_date = "1 Jan, 2018"
 interval = Client.KLINE_INTERVAL_1HOUR
 testSize = 200
 predDays = 12
-threshold = 0.5
+threshold = 0.8
 performance_threshold = 0.0
 email_threshold = 0.8
 max_request_delay = 1
@@ -101,12 +101,10 @@ def getData(altcoin_data, altcoin, predDays, threshold):
 
     
     # adding future days bullish candles as new features
-    n = predDays
     df['bullish+'] = 0
-    for i in range(n):
-        df['bullish+'] += (n-i)*df['bullish'].shift(-i-1)    
+    for i in range(predDays):
+        df['bullish+'] += df['bullish'].shift(-i-1)    
 
-    df['bullish+'] = df['bullish+'] / ((n+1)*n/2)
     
 
 
@@ -162,16 +160,16 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     X = np.nan_to_num(X)
 
 
-    tomorrrowPriceChange = data['bullish+'].values
-    tomorrrowPriceChange = np.nan_to_num(tomorrrowPriceChange)
-  
+    nextPriceAction = data['bullish+'].values
+    nextPriceAction = np.nan_to_num(nextPriceAction)
+    nextPriceActionRatio = nextPriceAction/predDays
 
     # computes the target label as whether the tomorrow value exceeds the threshold
     # in order to make the dataset balanced, i.e., number of pos and neg labels be equal
-    y = (tomorrrowPriceChange > threshold)*1
+    y = (nextPriceActionRatio > threshold)*1
 
 
-    return X, y, x_today, today, tomorrrowPriceChange, X.shape[0]
+    return X, y, x_today, today, nextPriceActionRatio, X.shape[0]
     
 
 def preprocess(X, x_today, y, testSize, k):
@@ -306,7 +304,7 @@ while True:
         
     df_results = df_results.sort_values(by='Buy', ascending=False)
     
-     #   d2g.upload(df_results, spreadsheet, wks_name)
+    d2g.upload(df_results, spreadsheet, wks_name)
     
     if len(df_results) > 3:
         best_res = df_results.iloc[0]
