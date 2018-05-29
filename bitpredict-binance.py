@@ -6,11 +6,9 @@ Created on Wed Apr 18 19:39:43 2018
 @author: arash
 """
 
-import os
 import numpy as np
 np.warnings.filterwarnings('ignore')
 import pandas as pd
-import pickle
 
 from datetime import datetime
 import time
@@ -19,13 +17,17 @@ from talib.abstract import *
 import talib
 
 from sklearn.feature_selection import SelectKBest
-from sklearn.feature_selection import mutual_info_classif
+from sklearn.feature_selection import mutual_info_regression
 
 from sklearn import preprocessing
 from sklearn import decomposition
     
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+from sklearn.linear_model import Ridge
+from sklearn.linear_model import RidgeCV
+
+from tensorflow import reset_default_graph
+reset_default_graph()
+import tflearn
 
 import smtplib
 import email.mime.multipart
@@ -33,7 +35,6 @@ import email.mime.text
 
 from df2gspread import df2gspread as d2g
 spreadsheet = '/spreadsheets/altcoin_predictions'
-wks_name = 'Sheet1'
 
 #from pytrends.request import TrendReq
 
@@ -52,14 +53,14 @@ pd.options.mode.chained_assignment = None  # default='warn'
 
 start_date = "1 Jan, 2018"  
 interval = Client.KLINE_INTERVAL_1HOUR
-testSize = 200
-predDays = 12
-threshold = 0.8
-performance_threshold = 0.0
-email_threshold = 0.8
-max_request_delay = 1
+testSize = 100
+featureSize = 50
+predDays = 1
+nEpoch = 2
+email_threshold = 2.0
 binance_coins = [ 'USDT',
-'TRX','XVG','NCASH','MCO','ETH','XRP','XLM','ADA','GRS','NEO'
+'TRX','XVG','NCASH',
+'MCO','ETH','XRP','XLM','ADA','GRS','NEO'
 ,'EOS','ICX','BNB','BCC','STORM','BAT','ONT','NANO','IOTA','LTC','VEN','XMR'
 ,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
 #,'CLOAK',
@@ -87,7 +88,7 @@ def sendMail(FROM,TO,SUBJECT,TEXT):
     server.quit()
     
 
-def getData(altcoin_data, altcoin, predDays, threshold):
+def getFeatures(altcoin_data, altcoin, predDays):
     # selecting the features of the given altcoin
     df = altcoin_data[altcoin][['time', 'open', 'close',
                      'high', 'low', 'volume']].astype('float')
@@ -97,13 +98,13 @@ def getData(altcoin_data, altcoin, predDays, threshold):
         
         
 
-    df['bullish'] = (df['open'] < df['close'])*1
+    df['change'] = (df['close'] - df['open']) / df['open']
 
     
     # adding future days bullish candles as new features
-    df['bullish+'] = 0
+    df['change+'] = 0
     for i in range(predDays):
-        df['bullish+'] += df['bullish'].shift(-i-1)    
+        df['change+'] += df['change'].shift(-i-1)    
 
     
 
@@ -119,7 +120,7 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     
     
     
-    data = df[['time', 'bullish', 'bullish+']]
+    data = df[['time', 'change', 'change+']]
     # technical indicators
     for func in functions:
         outputs = eval(func)(raw)
@@ -144,7 +145,7 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     data.fillna(method='backfill', inplace=True)
     
     features = data.copy()
-    features.drop(['bullish+'], axis = 1, inplace=True)
+    features.drop(['change+'], axis = 1, inplace=True)
     
     # getting last sample for prediction
     x_today = np.nan_to_num(features.iloc[-1].values)
@@ -160,16 +161,14 @@ def getData(altcoin_data, altcoin, predDays, threshold):
     X = np.nan_to_num(X)
 
 
-    nextPriceAction = data['bullish+'].values
+    nextPriceAction = data['change+'].values
     nextPriceAction = np.nan_to_num(nextPriceAction)
-    nextPriceActionRatio = nextPriceAction/predDays
 
     # computes the target label as whether the tomorrow value exceeds the threshold
     # in order to make the dataset balanced, i.e., number of pos and neg labels be equal
-    y = (nextPriceActionRatio > threshold)*1
+    y = nextPriceAction.reshape((-1, 1))
 
-
-    return X, y, x_today, today, nextPriceActionRatio, X.shape[0]
+    return X, y, x_today, today, nextPriceAction, X.shape[0]
     
 
 def preprocess(X, x_today, y, testSize, k):
@@ -184,7 +183,7 @@ def preprocess(X, x_today, y, testSize, k):
     x_today = min_max_scaler.transform(x_today.reshape(1, -1))
     
     # feature selection
-    selector = SelectKBest(mutual_info_classif, k=100)
+    selector = SelectKBest(mutual_info_regression, k=100)
     X_train = selector.fit_transform(X_train, y_train)
     X = selector.transform(X)
     x_today = selector.transform(x_today)
@@ -201,123 +200,109 @@ def preprocess(X, x_today, y, testSize, k):
 
 
 
+# Building deep neural network
+input_layer = tflearn.input_data(shape=[None, featureSize])
+
+dense1 = tflearn.fully_connected(input_layer, 64, activation='tanh',
+                                 regularizer='L2', weight_decay=0.001)
+
+dropout1 = tflearn.dropout(dense1, 0.8)
+
+dense2 = tflearn.fully_connected(dropout1, 64, activation='tanh',
+                                 regularizer='L2', weight_decay=0.001)
+
+dropout2 = tflearn.dropout(dense2, 0.8)
+
+softmax = tflearn.fully_connected(dropout2, 1, activation='linear')
+
+# Regression using SGD with learning rate decay and Top-3 accuracy
+sgd = tflearn.SGD(learning_rate=0.01, lr_decay=0.96, decay_step=1000)
+net = tflearn.regression(softmax, optimizer=sgd, metric='R2',
+                         loss='mean_square')
+
+predictor = tflearn.DNN(net, tensorboard_verbose=0)
+
+
+pred_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 5)),
+                              columns = ['altcoin', 'samples', 'train_score',
+                                         'test_score', 'prediction'])
+
 while True:
+        
     altcoin_data = {}
-    for altcoin in binance_coins:
-#        print(altcoin)
-        if altcoin=='USDT':
+    count = 0
+    for coin in binance_coins:
+        print(coin)       
+        
+        # the the historical data of the coins and add to the dataframe
+        if coin=='USDT':
             coinpair = "BTCUSDT"
         else:
-            coinpair = '{}BTC'.format(altcoin)
+            coinpair = '{}BTC'.format(coin)
         klines = client.get_historical_klines(coinpair, interval, start_date)
         klines_df = pd.DataFrame(klines)
         klines_df.columns = ['time', 'open', 'high', 'low', 'close', 'volume', 'close time',
                          'quote asset volume', 'number of trades', 'taker buy base asset volume',
                          'taker buy quote asset volume', 'ignore']
         klines_df.index = klines_df['time']
-        altcoin_data[altcoin] = klines_df
-        random_sleep_time = np.random.rand()*max_request_delay
-        time.sleep(random_sleep_time)
-    
-    
-    
-    
-    df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 6)),
-                                  columns = ['altcoin', 'days', 'train_score',
-                                             'test_score', 'baseline', 'performance'])
-    
-    classifier = LogisticRegression()
-    count = 0
-#    for coin in binance_coins:
-##        print(coin)
-#        X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
-#        X, x_today = preprocess(X, x_today, y, testSize, k=20)
-#        
-#        t_start = time.clock()
-#    
-#        train_scores = np.zeros(testSize)
-#        test_scores = np.zeros(testSize)
-#        y_preds = np.zeros(testSize)
-#        for i in range(testSize):
-#            X_train = X[0:-(i+1), :]
-#            y_train = y[0:-(i+1)]
-#    
-#            X_test = X[-(i+1), :].reshape(1, -1)
-#            y_test = y[-(i+1)].reshape(1, -1)
-#    
-#            classifier.fit(X_train, y_train)
-#            train_scores[i] = classifier.score(X_train, y_train)
-#            test_scores[i] = classifier.score(X_test, y_test)
-#            y_preds[i] = classifier.predict(X_test)
-#    
-#        t_end = time.clock()
-#        t_diff = t_end - t_start
-#    
-#        df_results.loc[count,'altcoin'] = coin
-#        df_results.loc[count,'days'] = size
-#        df_results.loc[count,'train_score'] = np.mean(train_scores)
-#        df_results.loc[count,'test_score'] = np.mean(test_scores)
-#        df_results.loc[count,'time'] = t_diff
-#    
-#    
-#        y_test = y[testSize:]
-#        baseline = np.sum(y_test==np.argmax([np.sum(y_test==0),
-#                                             np.sum(y_test==1)]))/np.size(y_test)
-#        df_results.loc[count,'baseline'] = baseline
-#        
-#        df_results.loc[count,'performance'] = (np.mean(test_scores) - baseline)/(1 - baseline)
-#    
-#        count+=1
-#        
-#    selected_coins = df_results['altcoin'].values[df_results['performance'] > performance_threshold]
-#    print(df_results)
-#    
-    
-    
-#    df_results = pd.DataFrame(data=np.zeros(shape=(len(selected_coins), 5)),
-#                                  columns = ['Altcoin', 'Day', 'Sell', 'Buy', 'Prediction'])
-    
-    df_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 3)),
-                                  columns = ['Altcoin', 'Day', 'Buy'])
-    classifier = LogisticRegression()
-    count = 0
-#    for coin in selected_coins:
-    for coin in binance_coins:
-#        print(coin)
-        X, y, x_today, today, y_cont, size = getData(altcoin_data, coin, predDays, threshold)
-        X, x_today = preprocess(X, x_today, y, testSize = 2, k=30)
+        altcoin_data[coin] = klines_df
+
+
+        # get technical indicators as features
+        X, y, x_today, today, y_cont, size = getFeatures(altcoin_data, coin, predDays)
         
-    
-        classifier.fit(X, y)
-        probs = classifier.predict_proba(x_today)
-        prediction = classifier.predict(x_today)
-    
-    
-        df_results.loc[count,'Altcoin'] = coin
-        df_results.loc[count,'Day'] = datetime.fromtimestamp(today/1000).strftime('%Y-%m-%d %H:%M') 
-        df_results.loc[count,'Buy'] = probs[0][1]
-    
+        # do normalization, feature selection and dimentionality reduction
+        X, x_today = preprocess(X, x_today, y, testSize, k=featureSize)
+        
+        
+        # split to train-test sets
+        X_train = X[0:-testSize, :]
+        y_train = y[0:-testSize]
+
+        X_test = X[-testSize:-1, :]
+        y_test = y[-testSize:-1]
+
+        # learn a regularized regression model and determine alpha value with CV
+        predictor.fit(X_train, y_train, n_epoch=nEpoch, show_metric=True)
+        train_score = np.mean(predictor.evaluate(X_train, y_train))*100
+        test_score = np.mean(predictor.evaluate(X_test, y_test))*100
+        print('R2 = %0.3f'%test_score)
+        
+        predictor.fit(X, y, n_epoch=nEpoch)
+        prediction = np.mean(predictor.predict(x_today))*100
+        print('prediction = %0.3f\n'%prediction)
+        
+        pred_results.loc[count,'altcoin'] = coin
+        pred_results.loc[count,'samples'] = size
+        pred_results.loc[count,'train_score'] = train_score
+        pred_results.loc[count,'test_score'] = test_score
+        pred_results.loc[count,'prediction'] = prediction
+        
     
         count+=1
         
-    df_results = df_results.sort_values(by='Buy', ascending=False)
+        
+    # save the scores and predictions in a Google sheet
+    pred_results = pred_results.sort_values(by='prediction', ascending=False)
+    d2g.upload(pred_results, spreadsheet, 'predictions')
+    print(pred_results)
     
-    d2g.upload(df_results, spreadsheet, wks_name)
     
-    if len(df_results) > 3:
-        best_res = df_results.iloc[0]
-        best_res1 = df_results.iloc[1]
-        best_res2 = df_results.iloc[2]
-        best_res3 = df_results.iloc[3]
-        if best_res['Buy']>email_threshold:
-            FROM = "arash.asn94@gmail.com"
-            TO = "arash.ashrafnejad@gmail.com"
-            SUBJECT = "BitPredict Price Alert!"
-            TEXT = best_res['Altcoin'] +' '+ str(best_res['Day']).replace('/', ',') + ' --> %0.3f'%best_res['Buy']+'\n'+ \
-            best_res1['Altcoin'] +' '+ str(best_res1['Day']).replace('/', ',') + ' --> %0.3f'%best_res1['Buy']+'\n'+ \
-            best_res2['Altcoin'] +' '+ str(best_res2['Day']).replace('/', ',') + ' --> %0.3f'%best_res2['Buy']+'\n'+ \
-            best_res3['Altcoin'] +' '+ str(best_res3['Day']).replace('/', ',') + ' --> %0.3f'%best_res3['Buy']+'\n'
-            sendMail(FROM,TO,SUBJECT,TEXT)
+    # send email notification of the best three results if the test_score
+    # reached the threshold
+    best_res = pred_results.iloc[0]
+    best_res1 = pred_results.iloc[1]
+    best_res2 = pred_results.iloc[2]
+    best_res3 = pred_results.iloc[3]
+    if best_res['prediction']>email_threshold:
+        FROM = "arash.asn94@gmail.com"
+        TO = "arash.ashrafnejad@gmail.com"
+        SUBJECT = "BitPredict Price Alert!"
+        TEXT = best_res['altcoin'] +' '+ str(best_res['Day']).replace('/', ',') + ' --> %0.3f'%best_res['prediction'] +'\n'+ \
+        best_res1['altcoin'] +' '+ str(best_res1['Day']).replace('/', ',') + ' --> %0.3f'%best_res1['prediction']+'\n'+ \
+        best_res2['altcoin'] +' '+ str(best_res2['Day']).replace('/', ',') + ' --> %0.3f'%best_res2['prediction']+'\n'+ \
+        best_res3['altcoin'] +' '+ str(best_res3['Day']).replace('/', ',') + ' --> %0.3f'%best_res3['prediction']+'\n'
+        sendMail(FROM,TO,SUBJECT,TEXT)
             
     
-    print(df_results)
+    
