@@ -10,7 +10,6 @@ import numpy as np
 np.warnings.filterwarnings('ignore')
 import pandas as pd
 
-from datetime import datetime
 import time
 
 from talib.abstract import *
@@ -19,11 +18,12 @@ import talib
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import mutual_info_regression
 
+from sklearn.linear_model import Ridge
+
 from sklearn import preprocessing
 from sklearn import decomposition
-    
-from sklearn.linear_model import Ridge
-from sklearn.linear_model import RidgeCV
+
+from sklearn.metrics import r2_score
 
 from tensorflow import reset_default_graph
 reset_default_graph()
@@ -51,13 +51,13 @@ client = Client(api_key, api_secret)
 # disable panda warning
 pd.options.mode.chained_assignment = None  # default='warn'
 
-start_date = "1 Jan, 2016"  
+start_date = "1 Jan, 2018"  
 interval = Client.KLINE_INTERVAL_12HOUR
-testSize = 100
-featureSize = 80
+testSize = 30
+featureSize = 50
 predDays = 1
-nEpoch = 5
-email_threshold = 2.0
+nEpoch = 10
+email_threshold = 10
 binance_coins = [ 'USDT',
 'TRX','XVG','NCASH',
 'MCO','ETH','XRP','XLM','ADA','GRS','NEO'
@@ -98,7 +98,7 @@ def getFeatures(altcoin_data, altcoin, predDays):
         
         
 
-    df['change'] = (df['close'] - df['open']) / df['open']
+    df['change'] = (df['high'] - df['open']) / df['open']
 
     
     # adding future days bullish candles as new features
@@ -138,7 +138,7 @@ def getFeatures(altcoin_data, altcoin, predDays):
     
             if (type(outputs) is pd.Series):
                 data[func+'_btc'] = outputs
-                
+#                
                 
                 
    
@@ -183,16 +183,16 @@ def preprocess(X, x_today, y, testSize, k):
     x_today = min_max_scaler.transform(x_today.reshape(1, -1))
     
     # feature selection
-    selector = SelectKBest(mutual_info_regression, k=k)
+    selector = SelectKBest(mutual_info_regression, k=100)
     X_train = selector.fit_transform(X_train, y_train)
     X = selector.transform(X)
     x_today = selector.transform(x_today)
     
-#    # dimensionality reduction
-#    pca = decomposition.PCA(n_components=k)
-#    pca.fit(X)
-#    X = pca.transform(X)
-#    x_today = pca.transform(x_today)
+    # dimensionality reduction
+    pca = decomposition.PCA(n_components=k)
+    pca.fit(X)
+    X = pca.transform(X)
+    x_today = pca.transform(x_today)
     
     return X, x_today
 
@@ -205,22 +205,25 @@ input_layer = tflearn.input_data(shape=[None, featureSize])
 
 dense1 = tflearn.fully_connected(input_layer, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-dropout1 = tflearn.dropout(dense1, 0.8)
+dropout1 = tflearn.dropout(dense1, 0.5)
 
 dense2 = tflearn.fully_connected(dropout1, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-dropout2 = tflearn.dropout(dense2, 0.8)
+dropout2 = tflearn.dropout(dense2, 0.5)
 
 dense3 = tflearn.fully_connected(dropout2, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-dropout3 = tflearn.dropout(dense3, 0.8)
+dropout3 = tflearn.dropout(dense2, 0.5)
 
 dense4 = tflearn.fully_connected(dropout3, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-dropout4 = tflearn.dropout(dense4, 0.8)
+dropout4 = tflearn.dropout(dense2, 0.5)
 
+dense5 = tflearn.fully_connected(dropout4, 64, activation='tanh',
+                                 regularizer='L2', weight_decay=0.001)
+dropout5 = tflearn.dropout(dense2, 0.5)
 
-softmax = tflearn.fully_connected(dropout4, 1, activation='linear')
+softmax = tflearn.fully_connected(dropout5, 1, activation='linear')
 
 # Regression using SGD with learning rate decay and Top-3 accuracy
 sgd = tflearn.SGD(learning_rate=0.01, lr_decay=0.96, decay_step=1000)
@@ -229,11 +232,14 @@ net = tflearn.regression(softmax, optimizer=sgd, metric='R2',
 
 predictor = tflearn.DNN(net, tensorboard_verbose=0)
 
+#predictor = Ridge(alpha=1.0)
+
+
+
 
 pred_results = pd.DataFrame(data=np.zeros(shape=(len(binance_coins), 5)),
                               columns = ['altcoin', 'samples', 'train_score',
                                          'test_score', 'prediction'])
-
 while True:
         
     altcoin_data = {}
@@ -277,13 +283,22 @@ while True:
 
         # learn a regularized regression model and determine alpha value with CV
         predictor.fit(X_train, y_train, n_epoch=nEpoch, show_metric=True)
-        train_score = np.mean(predictor.evaluate(X_train, y_train))*100
-        test_score = np.mean(predictor.evaluate(X_test, y_test))*100
-        print('R2 = %0.3f'%test_score)
+#        predictor.fit(X_train, y_train)
         
-        predictor.fit(X, y, n_epoch=nEpoch)
+        train_predicted = predictor.predict(X_train)
+        train_score = r2_score(y_train, train_predicted)
+        print('Train score = %0.4f'%train_score)
+        
+        test_predicted = predictor.predict(X_test)
+        test_score = r2_score(y_test, test_predicted)
+
+        print('Test score = %0.4f'%test_score)
+        
+        predictor.fit(X, y, n_epoch=nEpoch, show_metric=True)
+#        predictor.fit(X, y)
+        
         prediction = np.mean(predictor.predict(x_today))*100
-        print('prediction = %0.3f\n'%prediction)
+        print('prediction = %0.4f\n'%prediction)
         
         pred_results.loc[count,'altcoin'] = coin
         pred_results.loc[count,'samples'] = size
@@ -301,21 +316,21 @@ while True:
     print(pred_results)
     
     
-    # send email notification of the best three results if the test_score
-    # reached the threshold
-    best_res = pred_results.iloc[0]
-    best_res1 = pred_results.iloc[1]
-    best_res2 = pred_results.iloc[2]
-    best_res3 = pred_results.iloc[3]
-    if best_res['prediction']>email_threshold:
-        FROM = "arash.asn94@gmail.com"
-        TO = "arash.ashrafnejad@gmail.com"
-        SUBJECT = "BitPredict Price Alert!"
-        TEXT = best_res['altcoin'] +' '+ str(best_res['Day']).replace('/', ',') + ' --> %0.3f'%best_res['prediction'] +'\n'+ \
-        best_res1['altcoin'] +' '+ str(best_res1['Day']).replace('/', ',') + ' --> %0.3f'%best_res1['prediction']+'\n'+ \
-        best_res2['altcoin'] +' '+ str(best_res2['Day']).replace('/', ',') + ' --> %0.3f'%best_res2['prediction']+'\n'+ \
-        best_res3['altcoin'] +' '+ str(best_res3['Day']).replace('/', ',') + ' --> %0.3f'%best_res3['prediction']+'\n'
-        sendMail(FROM,TO,SUBJECT,TEXT)
+#    # send email notification of the best three results if the test_score
+#    # reached the threshold
+#    best_res = pred_results.iloc[0]
+#    best_res1 = pred_results.iloc[1]
+#    best_res2 = pred_results.iloc[2]
+#    best_res3 = pred_results.iloc[3]
+#    if best_res['prediction']>email_threshold:
+#        FROM = "arash.asn94@gmail.com"
+#        TO = "arash.ashrafnejad@gmail.com"
+#        SUBJECT = "BitPredict Price Alert!"
+#        TEXT = best_res['altcoin'] +' '+ str(best_res['test_score']).replace('/', ',') + ' --> %0.3f'%best_res['prediction'] +'\n'+ \
+#        best_res1['altcoin'] +' '+ str(best_res1['test_score']).replace('/', ',') + ' --> %0.3f'%best_res1['prediction']+'\n'+ \
+#        best_res2['altcoin'] +' '+ str(best_res2['test_score']).replace('/', ',') + ' --> %0.3f'%best_res2['prediction']+'\n'+ \
+#        best_res3['altcoin'] +' '+ str(best_res3['test_score']).replace('/', ',') + ' --> %0.3f'%best_res3['prediction']+'\n'
+#        sendMail(FROM,TO,SUBJECT,TEXT)
             
     
     
