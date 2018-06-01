@@ -51,12 +51,12 @@ client = Client(api_key, api_secret)
 # disable panda warning
 pd.options.mode.chained_assignment = None  # default='warn'
 
-start_date = "1 Jan, 2018"  
-interval = Client.KLINE_INTERVAL_1HOUR
+start_date = "1 Jan, 2016"  
+interval = Client.KLINE_INTERVAL_12HOUR
 testSize = 100
-featureSize = 50
+featureSize = 80
 predDays = 1
-nEpoch = 2
+nEpoch = 5
 email_threshold = 2.0
 binance_coins = [ 'USDT',
 'TRX','XVG','NCASH',
@@ -183,16 +183,16 @@ def preprocess(X, x_today, y, testSize, k):
     x_today = min_max_scaler.transform(x_today.reshape(1, -1))
     
     # feature selection
-    selector = SelectKBest(mutual_info_regression, k=100)
+    selector = SelectKBest(mutual_info_regression, k=k)
     X_train = selector.fit_transform(X_train, y_train)
     X = selector.transform(X)
     x_today = selector.transform(x_today)
     
-    # dimensionality reduction
-    pca = decomposition.PCA(n_components=k)
-    pca.fit(X)
-    X = pca.transform(X)
-    x_today = pca.transform(x_today)
+#    # dimensionality reduction
+#    pca = decomposition.PCA(n_components=k)
+#    pca.fit(X)
+#    X = pca.transform(X)
+#    x_today = pca.transform(x_today)
     
     return X, x_today
 
@@ -205,15 +205,22 @@ input_layer = tflearn.input_data(shape=[None, featureSize])
 
 dense1 = tflearn.fully_connected(input_layer, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-
 dropout1 = tflearn.dropout(dense1, 0.8)
 
 dense2 = tflearn.fully_connected(dropout1, 64, activation='tanh',
                                  regularizer='L2', weight_decay=0.001)
-
 dropout2 = tflearn.dropout(dense2, 0.8)
 
-softmax = tflearn.fully_connected(dropout2, 1, activation='linear')
+dense3 = tflearn.fully_connected(dropout2, 64, activation='tanh',
+                                 regularizer='L2', weight_decay=0.001)
+dropout3 = tflearn.dropout(dense3, 0.8)
+
+dense4 = tflearn.fully_connected(dropout3, 64, activation='tanh',
+                                 regularizer='L2', weight_decay=0.001)
+dropout4 = tflearn.dropout(dense4, 0.8)
+
+
+softmax = tflearn.fully_connected(dropout4, 1, activation='linear')
 
 # Regression using SGD with learning rate decay and Top-3 accuracy
 sgd = tflearn.SGD(learning_rate=0.01, lr_decay=0.96, decay_step=1000)
@@ -239,7 +246,13 @@ while True:
             coinpair = "BTCUSDT"
         else:
             coinpair = '{}BTC'.format(coin)
-        klines = client.get_historical_klines(coinpair, interval, start_date)
+            
+        try:
+            klines = client.get_historical_klines(coinpair, interval, start_date)
+        except:
+            time.sleep(600)
+            klines = client.get_historical_klines(coinpair, interval, start_date)
+            
         klines_df = pd.DataFrame(klines)
         klines_df.columns = ['time', 'open', 'high', 'low', 'close', 'volume', 'close time',
                          'quote asset volume', 'number of trades', 'taker buy base asset volume',
