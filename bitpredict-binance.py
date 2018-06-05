@@ -2,15 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 Created on Wed Apr 18 19:39:43 2018
-
 @author: arash
 """
-
 import numpy as np
 np.warnings.filterwarnings('ignore')
 import pandas as pd
 
 import time
+from datetime import datetime
 
 from talib.abstract import *
 import talib
@@ -36,11 +35,7 @@ import email.mime.text
 from df2gspread import df2gspread as d2g
 spreadsheet = '/spreadsheets/altcoin_predictions'
 
-#from pytrends.request import TrendReq
-
-import quandl
-quandl.ApiConfig.api_key = 'UX1w8dNS5nXfuCqLQSx5'
-data_dir = './data/'
+from pytrends.request import TrendReq
 
 from binance.client import Client
 api_key = 'e0LdDWHVXTAdEAOPFT7r3Kgy4WX0iuyIsfKZRLFHStp2rnsTyddoYRBLHFfAzzi3'
@@ -51,27 +46,40 @@ client = Client(api_key, api_secret)
 # disable panda warning
 pd.options.mode.chained_assignment = None  # default='warn'
 
-start_date = "1 Jan, 2018"  
-interval = Client.KLINE_INTERVAL_12HOUR
-testSize = 30
-featureSize = 50
+start_date = "1 Jan, 2017"  
+interval = Client.KLINE_INTERVAL_1DAY
+testSize = 100
+featureSize = 100
 predDays = 1
-nEpoch = 10
+nEpoch = 1
 email_threshold = 10
-binance_coins = [ 'USDT',
-'TRX','XVG','NCASH',
-'MCO','ETH','XRP','XLM','ADA','GRS','NEO'
-,'EOS','ICX','BNB','BCC','STORM','BAT','ONT','NANO','IOTA','LTC','VEN','XMR'
-,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
-#,'CLOAK',
-,'QLC','LINK','SNT','WAVES','BTG','ENJ','BQX','EDO','STRAT','POA','NULS','TRIG'
-,'SALT','STEEM','LEND','VIBE','BCPT','POWR','DGD','ZIL','CMT','WTC','DASH','POE'
-,'LSK','LUN','ENG','ZRX','XEM','ADX','WPR','ARN','ZEC','XZC','PPT','ARK','INS'
-,'CND','RCN','AMB','DLT','VIB','OST','BTS','GAS','BRD','DNT','GTO','HSR','FUN'
-,'CHAT','NAV','LRC','TNB','QSP','REQ','BLZ','KMD','APPC','KNC','AE','BCD','SYS'
-,'RPX','SNGLS','MDA','WABI','FUEL','TNT','VIA','MTH','GXS','EVX','RLC','CDT'
-,'AST','WINGS','YOYO','STORJ','PIVX','SNM','BNT','ICN','RDN','OAX','MANA','MOD'
-]
+
+#binance_coins = [ 'USDT',
+#'TRX','XVG','NCASH',
+#'MCO','ETH','XRP','XLM','ADA','GRS','NEO'
+#,'EOS','ICX','BNB','BCC','STORM','BAT','ONT','NANO','IOTA','LTC','VEN','XMR'
+#,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
+##,'CLOAK',
+#,'QLC','LINK','SNT','WAVES','BTG','ENJ','BQX','EDO','STRAT','POA','NULS','TRIG'
+#,'SALT','STEEM','LEND','VIBE','BCPT','POWR','DGD','ZIL','CMT','WTC','DASH','POE'
+#,'LSK','LUN','ENG','ZRX','XEM','ADX','WPR','ARN','ZEC','XZC','PPT','ARK','INS'
+#,'CND','RCN','AMB','DLT','VIB','OST','BTS','GAS','BRD','DNT','GTO','HSR','FUN'
+#,'CHAT','NAV','LRC','TNB','QSP','REQ','BLZ','KMD','APPC','KNC','AE','BCD','SYS'
+#,'RPX','SNGLS','MDA','WABI','FUEL','TNT','VIA','MTH','GXS','EVX','RLC','CDT'
+#,'AST','WINGS','YOYO','STORJ','PIVX','SNM','BNT','ICN','RDN','OAX','MANA','MOD'
+#]
+
+binance_coins = ['ADA', 'ADX', 'AE', 'AION', 'AMB', 'APPC',
+                 'BAT', 'BCC', 'BCN', 'BCPT', 'BLZ', 'BRD',
+                 'BTS', 'CMT', 'CND', 'CVC', 'DLT', 'EOS',
+                 'GNT', 'GTO', 'ICX', 'IOTA', 'LOOM', 'LSK',
+                 'LTC', 'MCO', 'NANO', 'NAV', 'NCASH', 'NEBL',
+                 'NEO', 'NULS', 'ONT', 'OST', 'PIVX', 'POA',
+                 'POWR', 'QLC', 'QSP', 'QTUM', 'RCN', 'RDN',
+                 'REP', 'RLC', 'RPX', 'SKY', 'STEEM', 'STORM',
+                 'SYS', 'THETA', 'TRIG', 'TUDS', 'VEN', 'VIA',
+                 'WABI', 'WAN', 'WAVES', 'WTC', 'XEM', 'XLM',
+                 'XRP', 'XZC', 'YOYO', 'ZEN', 'ZIL']
 
 def sendMail(FROM,TO,SUBJECT,TEXT):
 
@@ -92,11 +100,10 @@ def getFeatures(altcoin_data, altcoin, predDays):
     # selecting the features of the given altcoin
     df = altcoin_data[altcoin][['time', 'open', 'close',
                      'high', 'low', 'volume']].astype('float')
-    if altcoin!='USDT':
-        df_btc = altcoin_data['USDT'][['time', 'open', 'close',
-                     'high', 'low', 'volume']].astype('float')
-        
-        
+    
+#    if altcoin!='USDT':
+#        df_btc = altcoin_data['USDT'][['time', 'open', 'close',
+#                     'high', 'low', 'volume']].astype('float')      
 
     df['change'] = (df['high'] - df['open']) / df['open']
 
@@ -130,18 +137,34 @@ def getFeatures(altcoin_data, altcoin, predDays):
     
 
     
-    if altcoin!='USDT':
-        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
-        # technical indicators
-        for func in functions:
-            outputs = eval(func)(raw_btc)
+#    if altcoin!='USDT':
+#        raw_btc = df_btc[['open', 'high', 'low', 'close', 'volume']]
+#        # technical indicators
+#        for func in functions:
+#            outputs = eval(func)(raw_btc)
+#    
+#            if (type(outputs) is pd.Series):
+#                data[func+'_btc'] = outputs
+
+
+    # Google trend interests of the altcoin
+    end_date = datetime.now()
+    date = end_date.date()
+    dateStr = date.strftime('%Y-%m-%d')
+        
+    pytrends = TrendReq(hl='en-US', tz=360)
+    pytrends.build_payload([altcoin], cat=0, timeframe='2017-01-01 %s'%dateStr, geo='', gprop='')
+    interests = pytrends.interest_over_time()
+    data[altcoin+'Interest'] = interests[altcoin]
     
-            if (type(outputs) is pd.Series):
-                data[func+'_btc'] = outputs
-#                
+    # Google trend interests of the bitcoin
+    pytrends = TrendReq(hl='en-US', tz=360)
+    pytrends.build_payload(['bitcoin'], cat=0, timeframe='2017-01-01 %s'%dateStr, geo='', gprop='')
+    interests = pytrends.interest_over_time()
+    data['bitcoinInterest'] = interests['bitcoin']               
                 
                 
-   
+    data.head()
     data.fillna(method='backfill', inplace=True)
     
     features = data.copy()
@@ -251,12 +274,12 @@ while True:
         if coin=='USDT':
             coinpair = "BTCUSDT"
         else:
-            coinpair = '{}BTC'.format(coin)
+            coinpair = '{}BNB'.format(coin)
             
         try:
             klines = client.get_historical_klines(coinpair, interval, start_date)
         except:
-            time.sleep(600)
+            time.sleep(7200)
             klines = client.get_historical_klines(coinpair, interval, start_date)
             
         klines_df = pd.DataFrame(klines)
@@ -286,18 +309,17 @@ while True:
 #        predictor.fit(X_train, y_train)
         
         train_predicted = predictor.predict(X_train)
-        train_score = r2_score(y_train, train_predicted)
-        print('Train score = %0.4f'%train_score)
+        train_score = r2_score(y_train, train_predicted)*100
         
         test_predicted = predictor.predict(X_test)
-        test_score = r2_score(y_test, test_predicted)
+        test_score = r2_score(y_test, test_predicted)*100
 
-        print('Test score = %0.4f'%test_score)
-        
         predictor.fit(X, y, n_epoch=nEpoch, show_metric=True)
 #        predictor.fit(X, y)
-        
         prediction = np.mean(predictor.predict(x_today))*100
+        
+        print('Train score = %0.4f'%train_score)
+        print('Test score = %0.4f'%test_score)
         print('prediction = %0.4f\n'%prediction)
         
         pred_results.loc[count,'altcoin'] = coin
