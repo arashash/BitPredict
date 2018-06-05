@@ -5,6 +5,8 @@ Created on Tue Jun  5 20:27:35 2018
 
 @author: arash
 """
+import time
+import numpy as np
 import pandas as pd
 
 from pytrends.request import TrendReq
@@ -12,11 +14,18 @@ from datetime import datetime
 
 pytrends = TrendReq(hl='en-US', tz=0)
 
+
+from binance.client import Client
+api_key = 'e0LdDWHVXTAdEAOPFT7r3Kgy4WX0iuyIsfKZRLFHStp2rnsTyddoYRBLHFfAzzi3'
+api_secret = 'Ps0tL8vZJyUGFdDl6C5FbYnroSi4j0kOEYa2OlLGu5vZLx6NVyc1EsgJdlgZOApR'
+client = Client(api_key, api_secret)
+
+
+
 end_date = datetime.now()
 date = end_date.date()
 dateStr = date.strftime('%Y,%m,%d,%H,%M,%S').split(',')
 dateNums = [ int(x) for x in dateStr ]
-
 
 
 coins = [ 'BTC',
@@ -34,15 +43,44 @@ coins = [ 'BTC',
 ,'AST','WINGS','YOYO','STORJ','PIVX','SNM','BNT','ICN','RDN','OAX','MANA','MOD'
 ]
 
+
 for coin in coins:
     print(coin)
-    kw_list = []
-    kw_list.append(coin+' price')
-    data = pytrends.get_historical_interest(kw_list,
-                             year_start=2017, month_start=1, day_start=1, hour_start=0,
-                             year_end=dateNums[0], month_end=dateNums[1], day_end=dateNums[2], hour_end=dateNums[3],
-                             cat=0, geo='', gprop='', sleep=0)
-    
-    data.to_csv('/home/arash/BitPredict/pyTrendsData/%s.csv'%coin)
-    data = pd.read_csv('/home/arash/BitPredict/pyTrendsData/%s.csv'%coin)
-    print(data.tail())
+    try:
+        data = pd.read_csv('/home/arash/BitPredict/data/%s.csv'%coin)
+        print(data.tail())
+    except:
+        # the Google trends historical interests
+        kw_list = []
+        kw_list.append(coin+' price')
+        trendsData = pytrends.get_historical_interest(kw_list,
+                                 year_start=2017, month_start=1, day_start=1, hour_start=0,
+                                 year_end=dateNums[0], month_end=dateNums[1], day_end=dateNums[2], hour_end=dateNums[3],
+                                 cat=0, geo='', gprop='', sleep=0)
+
+        # the the historical data of the coins and add to the dataframe
+        if coin=='BTC':
+            coinpair = "BTCUSDT"
+        else:
+            coinpair = '{}BTC'.format(coin)
+            
+        start_date = "1 Jan, 2017"  
+        interval = Client.KLINE_INTERVAL_1HOUR
+        
+        klines = client.get_historical_klines(coinpair, interval, start_date)
+        df = pd.DataFrame(klines)
+        df.columns = ['date', 'open', 'high', 'low', 'close', 'volume', 'close time',
+                         'quote asset volume', 'number of trades', 'taker buy base asset volume',
+                         'taker buy quote asset volume', 'ignore']
+
+        df['date'] = pd.to_datetime(df['date'], unit='ms')
+        df.index = df['date']
+        
+        df = df.join(trendsData)
+       
+        print(df.head())
+        if (len(df) > 12000):
+            df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
+        rand = 600*np.random.rand()
+        time.sleep(rand)
+        
