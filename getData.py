@@ -12,7 +12,7 @@ import pandas as pd
 from pytrends.request import TrendReq
 from datetime import datetime
 
-pytrends = TrendReq(hl='en-US', tz=0)
+pytrends = TrendReq(hl='en-US', tz=0, proxies = {'https': 'https://145.239.34.65:8888'})
 
 
 from binance.client import Client
@@ -47,14 +47,14 @@ coins = [ 'BTC',
 for coin in coins:
     print(coin)
     try:
-        data = pd.read_csv('/home/arash/BitPredict/data/%s.csv'%coin)
-        print(data.tail())
+        df = pd.read_csv('/home/arash/BitPredict/data/%s.csv'%coin)
+        print(df.tail())
     except:
         # the Google trends historical interests
         kw_list = []
         kw_list.append(coin+' price')
         trendsData = pytrends.get_historical_interest(kw_list,
-                                 year_start=2017, month_start=1, day_start=1, hour_start=0,
+                                 year_start=2018, month_start=1, day_start=1, hour_start=0,
                                  year_end=dateNums[0], month_end=dateNums[1], day_end=dateNums[2], hour_end=dateNums[3],
                                  cat=0, geo='', gprop='', sleep=0)
 
@@ -64,7 +64,7 @@ for coin in coins:
         else:
             coinpair = '{}BTC'.format(coin)
             
-        start_date = "1 Jan, 2017"  
+        start_date = "1 Jan, 2018"  
         interval = Client.KLINE_INTERVAL_1HOUR
         
         klines = client.get_historical_klines(coinpair, interval, start_date)
@@ -77,10 +77,9 @@ for coin in coins:
         df.index = df['date']
         
         df = df.join(trendsData)
-       
-        print(df.head())
-        if (len(df) > 12000):
-            df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
+        df = df.dropna()
+        print(df.tail())
+        df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
         rand = 600*np.random.rand()
         time.sleep(rand)
         
