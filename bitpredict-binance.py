@@ -46,12 +46,12 @@ client = Client(api_key, api_secret)
 # disable panda warning
 pd.options.mode.chained_assignment = None  # default='warn'
 
-start_date = "1 Jan, 2017"  
-interval = Client.KLINE_INTERVAL_1DAY
+start_date = "1 Jan, 2018"  
+interval = Client.KLINE_INTERVAL_1HOUR
 testSize = 100
 featureSize = 100
-predDays = 1
-nEpoch = 1
+predStep = 24
+nEpoch = 10
 email_threshold = 10
 
 #binance_coins = [ 'USDT',
@@ -103,15 +103,13 @@ def getFeatures(altcoin_data, altcoin, predDays):
     
 #    if altcoin!='USDT':
 #        df_btc = altcoin_data['USDT'][['time', 'open', 'close',
-#                     'high', 'low', 'volume']].astype('float')      
-
-    df['change'] = (df['high'] - df['open']) / df['open']
-
+#                     'high', 'low', 'volume']].astype('float')   
     
-    # adding future days bullish candles as new features
-    df['change+'] = 0
-    for i in range(predDays):
-        df['change+'] += df['change'].shift(-i-1)    
+    
+    df['close+'] = df['close'].shift(-predStep) 
+    df['change+'] = (df['close+'] - df['open']) / df['open']
+
+
 
     
 
@@ -127,7 +125,7 @@ def getFeatures(altcoin_data, altcoin, predDays):
     
     
     
-    data = df[['time', 'change', 'change+']]
+    data = df[['time', 'change+']]
     # technical indicators
     for func in functions:
         outputs = eval(func)(raw)
@@ -274,7 +272,7 @@ while True:
         if coin=='USDT':
             coinpair = "BTCUSDT"
         else:
-            coinpair = '{}BNB'.format(coin)
+            coinpair = '{}BTC'.format(coin)
             
         try:
             klines = client.get_historical_klines(coinpair, interval, start_date)
@@ -291,7 +289,7 @@ while True:
 
 
         # get technical indicators as features
-        X, y, x_today, today, y_cont, size = getFeatures(altcoin_data, coin, predDays)
+        X, y, x_today, today, y_cont, size = getFeatures(altcoin_data, coin, predStep)
         
         # do normalization, feature selection and dimentionality reduction
         X, x_today = preprocess(X, x_today, y, testSize, k=featureSize)
