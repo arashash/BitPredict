@@ -12,7 +12,7 @@ import pandas as pd
 from pytrends.request import TrendReq
 from datetime import datetime
 
-pytrends = TrendReq(hl='en-US', tz=0, proxies = {'https': 'https://145.239.34.65:8888'})
+pytrends = TrendReq(hl='en-US', tz=0)
 
 
 from binance.client import Client
@@ -48,7 +48,7 @@ for coin in coins:
     print(coin)
     try:
         df = pd.read_csv('/home/arash/BitPredict/data/%s.csv'%coin)
-        print(df.tail())
+        print(len(df))
     except:
         # the Google trends historical interests
         kw_list = []
@@ -78,7 +78,7 @@ for coin in coins:
         
         df = df.join(trendsData)
         df = df.dropna()
-        print(df.tail())
+        print(len(df))
         df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
         rand = 600*np.random.rand()
         time.sleep(rand)
