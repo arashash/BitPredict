@@ -41,8 +41,9 @@ end_date = datetime(2018, 6, 1, 0, 0)
 
 
 coins = [
-'BTC',
-'TRX','XVG',
+# 'BTC',
+# 'TRX',
+'XVG',
 'MCO','ETH','XRP','XLM','ADA', 'NEO'
 ,'EOS','ICX','BNB','ONT','NANO','IOTA','LTC','VEN','XMR'
 #,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
