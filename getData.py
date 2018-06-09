@@ -46,25 +46,25 @@ coins = ['BTC',
 
 coin_dict = {
     'BTC': 'Bitcoin',
-    'TRX': 'TRON',    
+    'TRX': 'TRON',
     'XVG': 'Verge',
     'MCO': 'Monaco',
     'ETH': 'Ethereum',
     'XRP': 'Ripple',
     'XLM': 'Stellar',
     'ADA': 'Cordano',
-    'NEO': 'NEO', 
+    'NEO': 'NEO',
     'EOS': 'EOS',
     'ICX': 'ICON',
     'BNB': 'Binance Coin',
     'ONT': 'Ontology',
-    'NANO': 'Nano', 
+    'NANO': 'Nano',
     'IOTA': 'IOT',
     'LTC': 'Litecoin',
     'VEN': 'VeChain',
     'XMR': 'Monero'
     }
-    
+
 for coin in coins:
     print(coin)
     try:
@@ -77,7 +77,7 @@ for coin in coins:
             coinpair = "BTCUSDT"
         else:
             coinpair = '{}BTC'.format(coin)
-            
+
         start_date_str = start_date.strftime("%d %B, %Y")
         end_date_str = end_date.strftime("%d %B, %Y")
         interval = Client.KLINE_INTERVAL_1HOUR
@@ -88,7 +88,7 @@ for coin in coins:
                          'taker buy quote asset volume', 'ignore']
         df['date'] = pd.to_datetime(df['time'], unit='ms')
         df.index = df['date']
-        
+
         # the Google trends historical interests
         searchQuery = coin_dict[coin]+' '+coin
         kw_list = [searchQuery]
@@ -96,26 +96,26 @@ for coin in coins:
                                  year_start=start_date.year, month_start=start_date.month, day_start=start_date.day, hour_start=start_date.hour,
                                  year_end=end_date.year, month_end=end_date.month, day_end=end_date.day, hour_end=end_date.hour,
                                  cat=0, geo='', gprop='', sleep=0)
-        
+
         # add to the final dataframe
         df = df.join(trendsData)
 
-        
+
         try:
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';', low_memory=False)
-        except:    
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';')
+        except:
             # get Twitter sentiments
             os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since %s --until %s --output ./data/%s_tweets.csv'%(coin_dict[coin],
                                                                                                                              coin,
                                                                                                                              start_date.strftime("%Y-%m-%d"),
                                                                                                                              end_date.strftime("%Y-%m-%d"),
                                                                                                                              coin))
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';', low_memory=False)
-            
-        
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';')
+
+
         twData['sentiment'] = 0
         for index, row in twData.iterrows():
-            
+
             # sentiment analysis
             try:
             	analysis = TextBlob(row['text'])
@@ -127,26 +127,25 @@ for coin in coins:
 
             	# round down to the nearest hour
             	twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
-            
+
             except:
             	twData.ix[index, 'sentiment'] = 0
             	print('Got invalid row!')
 
-            
-        
+
+
         # group and average over hourly dates
         sub_twData = twData.groupby('date').mean()[['sentiment']]
-        
+
         # add to the final dataframe
         df = df.join(sub_twData)
-        
+
 
         df = df [['open', 'high', 'low', 'close', 'volume', 'number of trades', searchQuery, 'sentiment']]
-        
+
         length = len(df)
         print(length)
         df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
-        
+
         rand = 60*np.random.rand()
         time.sleep(rand)
-        
