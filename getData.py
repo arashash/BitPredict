@@ -105,9 +105,9 @@ for coin in coins:
         
         
         # get Twitter sentiments
-        os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since 2018-01-01 --until 2018-06-01'%(coin_dict[coin], coin))
+        # os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since 2018-01-01 --until 2018-06-01'%(coin_dict[coin], coin))
         twData = pd.read_csv('/home/arash/BitPredict/output_got.csv', sep=';')
-        os.system('rm /home/arash/BitPredict/output_got.csv')
+        # os.system('mv /home/arash/BitPredict/output_got.csv /home/arash/BitPredict/data/output_got_%s.csv'%coin)
         
         twData['sentiment'] = 0
         for index, row in twData.iterrows():
