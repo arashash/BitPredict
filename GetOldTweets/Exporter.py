@@ -42,10 +42,10 @@ def main(argv):
 
 			elif opt == '--maxtweets':
 				tweetCriteria.maxTweets = int(arg)
-			
+
 			elif opt == '--near':
 				tweetCriteria.near = '"' + arg + '"'
-			
+
 			elif opt == '--within':
 				tweetCriteria.within = '"' + arg + '"'
 
@@ -54,16 +54,16 @@ def main(argv):
 
 			elif opt == '--output':
 				outputFileName = arg
-				
+
 		outputFile = codecs.open(outputFileName, "w+", "utf-8")
 
-		outputFile.write('username;date;retweets;favorites;text;geo;mentions;hashtags;id;permalink')
+		outputFile.write('username,date,retweets,favorites,text')
 
 		print('Searching...\n')
 
 		def receiveBuffer(tweets):
 			for t in tweets:
-				outputFile.write(('\n%s;%s;%d;%d;"%s";%s;%s;%s;"%s";%s' % (t.username, t.date.strftime("%Y-%m-%d %H:%M"), t.retweets, t.favorites, t.text, t.geo, t.mentions, t.hashtags, t.id, t.permalink)))
+				outputFile.write(('\n%s,%s,%d,%d,"%s"' % (t.username, t.date.strftime("%Y-%m-%d %H:%M"), t.retweets, t.favorites, t.text.replace('"', '`'))))
 			outputFile.flush()
 			print('More %d saved on file...\n' % len(tweets))
 

@@ -11,8 +11,21 @@ import numpy as np
 import pandas as pd
 from textblob import TextBlob
 
+# first setting up the proxies in order to not get blocked by APIs
+os.system('export http_proxy="http://<proxy>:<port>"')
+os.system('export HTTP_PROXY="http://<proxy>:<port>"')
+os.system('export https_proxy="http://<proxy>:<port>"')
+os.system('export HTTPS_PROXY="http://<proxy>:<port>"')
+
+proxy = 'http://195.201.97.32:8888'
+os.environ['http_proxy'] = proxy
+os.environ['HTTP_PROXY'] = proxy
+os.environ['https_proxy'] = proxy
+os.environ['HTTPS_PROXY'] = proxy
+
+
 from pytrends.request import TrendReq
-pytrends = TrendReq(hl='en-US', tz=0, proxies = {'https': 'https://191.252.102.239:3128'})
+pytrends = TrendReq(hl='en-US', tz=0)
 
 from datetime import datetime
 UTC_OFFSET_TIMEDELTA = datetime.utcnow() - datetime.now()
@@ -23,12 +36,12 @@ api_secret = 'Ps0tL8vZJyUGFdDl6C5FbYnroSi4j0kOEYa2OlLGu5vZLx6NVyc1EsgJdlgZOApR'
 client = Client(api_key, api_secret)
 
 
-
 start_date = datetime(2018, 1, 1, 0, 0)
-end_date = datetime(2018, 1, 8, 0, 0)
+end_date = datetime(2018, 6, 1, 0, 0)
 
 
-coins = ['BTC',
+coins = [
+'BTC',
 'TRX','XVG',
 'MCO','ETH','XRP','XLM','ADA', 'NEO'
 ,'EOS','ICX','BNB','ONT','NANO','IOTA','LTC','VEN','XMR'
@@ -102,18 +115,22 @@ for coin in coins:
 
 
         try:
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';')
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin)
         except:
+            try:
+                os.system('rm /home/arash/BitPredict/data/%s_tweets.csv'%coin)
+            except:
+                print('File does not exist!')
             # get Twitter sentiments
             os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since %s --until %s --output ./data/%s_tweets.csv'%(coin_dict[coin],
                                                                                                                              coin,
                                                                                                                              start_date.strftime("%Y-%m-%d"),
                                                                                                                              end_date.strftime("%Y-%m-%d"),
                                                                                                                              coin))
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';')
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin)
 
 
-        twData['sentiment'] = 0
+        twData['sentiment'] = np.zeros(len(twData))
         for index, row in twData.iterrows():
 
             # sentiment analysis
@@ -129,7 +146,7 @@ for coin in coins:
             	twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
 
             except:
-            	twData.ix[index, 'sentiment'] = 0
+            	twData.ix[index, 'sentiment'] = 0.0
             	print('Got invalid row!')
 
 
@@ -142,10 +159,7 @@ for coin in coins:
 
 
         df = df [['open', 'high', 'low', 'close', 'volume', 'number of trades', searchQuery, 'sentiment']]
-
+        df = df.fillna(0.0)
         length = len(df)
         print(length)
         df.to_csv('/home/arash/BitPredict/data/%s.csv'%coin)
-
-        rand = 60*np.random.rand()
-        time.sleep(rand)
