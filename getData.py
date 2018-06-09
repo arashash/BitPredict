@@ -12,7 +12,7 @@ import pandas as pd
 from textblob import TextBlob
 
 from pytrends.request import TrendReq
-pytrends = TrendReq(hl='en-US', tz=0)
+pytrends = TrendReq(hl='en-US', tz=0, proxies = {'https': 'https://191.252.102.239:3128'})
 
 from datetime import datetime
 UTC_OFFSET_TIMEDELTA = datetime.utcnow() - datetime.now()
@@ -24,10 +24,8 @@ client = Client(api_key, api_secret)
 
 
 
-end_date = datetime.utcnow()
-date = end_date.date()
-dateStr = date.strftime('%Y,%m,%d,%H,%M,%S').split(',')
-dateNums = [ int(x) for x in dateStr ]
+start_date = datetime(2018, 1, 1, 0, 0)
+end_date = datetime(2018, 1, 8, 0, 0)
 
 
 coins = ['BTC',
@@ -80,10 +78,10 @@ for coin in coins:
         else:
             coinpair = '{}BTC'.format(coin)
             
-        start_date = "1 Jan, 2018"  
-        end_date = "1 June, 2018" 
+        start_date_str = start_date.strftime("%d %B, %Y")
+        end_date_str = end_date.strftime("%d %B, %Y")
         interval = Client.KLINE_INTERVAL_1HOUR
-        klines = client.get_historical_klines(coinpair, interval, start_date, end_date)
+        klines = client.get_historical_klines(coinpair, interval, start_date_str, end_date_str)
         df = pd.DataFrame(klines)
         df.columns = ['time', 'open', 'high', 'low', 'close', 'volume', 'close time',
                          'quote asset volume', 'number of trades', 'taker buy base asset volume',
@@ -95,35 +93,46 @@ for coin in coins:
         searchQuery = coin_dict[coin]+' '+coin
         kw_list = [searchQuery]
         trendsData = pytrends.get_historical_interest(kw_list,
-                                 year_start=2018, month_start=1, day_start=1, hour_start=0,
-                                 year_end=2018, month_end=6, day_end=1, hour_end=0,
+                                 year_start=start_date.year, month_start=start_date.month, day_start=start_date.day, hour_start=start_date.hour,
+                                 year_end=end_date.year, month_end=end_date.month, day_end=end_date.day, hour_end=end_date.hour,
                                  cat=0, geo='', gprop='', sleep=0)
         
         # add to the final dataframe
         df = df.join(trendsData)
 
         
-        
-        # get Twitter sentiments
-        # os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since 2018-01-01 --until 2018-06-01'%(coin_dict[coin], coin))
-        twData = pd.read_csv('/home/arash/BitPredict/output_got.csv', sep=';')
-        # os.system('mv /home/arash/BitPredict/output_got.csv /home/arash/BitPredict/data/output_got_%s.csv'%coin)
+        try:
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';', low_memory=False)
+        except:    
+            # get Twitter sentiments
+            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since %s --until %s --output ./data/%s_tweets.csv'%(coin_dict[coin],
+                                                                                                                             coin,
+                                                                                                                             start_date.strftime("%Y-%m-%d"),
+                                                                                                                             end_date.strftime("%Y-%m-%d"),
+                                                                                                                             coin))
+            twData = pd.read_csv('/home/arash/BitPredict/data/%s_tweets.csv'%coin, sep=';', low_memory=False)
+            
         
         twData['sentiment'] = 0
         for index, row in twData.iterrows():
             
             # sentiment analysis
-            analysis = TextBlob(row['text'])
-            twData.ix[index, 'sentiment'] = analysis.sentiment.polarity
+            try:
+            	analysis = TextBlob(row['text'])
+            	twData.ix[index, 'sentiment'] = analysis.sentiment.polarity
+            	# convert to utc time
+            	local_datetime = datetime.strptime(row['date'], "%Y-%m-%d %H:%M")
+            	result_utc_datetime = local_datetime + UTC_OFFSET_TIMEDELTA
+            	result_utc_str = result_utc_datetime.strftime("%Y-%m-%d %H:%M")
+
+            	# round down to the nearest hour
+            	twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
             
-            # convert to utc time
-            local_datetime = datetime.strptime(row['date'], "%Y-%m-%d %H:%M")
-            result_utc_datetime = local_datetime + UTC_OFFSET_TIMEDELTA
-            result_utc_str = result_utc_datetime.strftime("%Y-%m-%d %H:%M")
+            except:
+            	twData.ix[index, 'sentiment'] = 0
+            	print('Got invalid row!')
+
             
-            # round down to the nearest hour
-            twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
-                
         
         # group and average over hourly dates
         sub_twData = twData.groupby('date').mean()[['sentiment']]
