@@ -41,20 +41,17 @@ end_date = datetime(2018, 6, 1, 0, 0)
 
 
 coins = [
-# 'BTC',
-# 'TRX',
-'XVG',
-'MCO','ETH','XRP','XLM','ADA', 'NEO'
-,'EOS','ICX','BNB','ONT','NANO','IOTA','LTC','VEN','XMR'
-#,'ETC','IOST','OMG','SUB','WAN','NEBL','QTUM','MTL','ELF','GVT','AION'
-##,'CLOAK',
-#,'QLC','LINK','SNT','WAVES','BTG','ENJ','BQX','EDO','STRAT','POA','NULS','TRIG'
-#,'SALT','STEEM','LEND','VIBE','BCPT','POWR','DGD','ZIL','CMT','WTC','DASH','POE'
-#,'LSK','LUN','ENG','ZRX','XEM','ADX','WPR','ARN','ZEC','XZC','PPT','ARK','INS'
-#,'CND','RCN','AMB','DLT','VIB','OST','BTS','GAS','BRD','DNT','GTO','HSR','FUN'
-#,'CHAT','NAV','LRC','TNB','QSP','REQ','BLZ','KMD','APPC','KNC','AE','BCD','SYS'
-#,'RPX','SNGLS','MDA','WABI','FUEL','TNT','VIA','MTH','GXS','EVX','RLC','CDT'
-#,'AST','WINGS','YOYO','STORJ','PIVX','SNM','BNT','ICN','RDN','OAX','MANA','MOD'
+'BTC','TRX','XVG',
+'MCO','ETH','XRP','XLM','ADA', 'NEO',
+'EOS','ICX','BNB','ONT','NANO','IOTA','LTC','VEN','XMR',
+'ETC','OMG','WAN','QTUM','ELF','AION',
+'LINK','SNT','WAVES','BTG','STRAT','NULS',
+'SALT','STEEM','DGD','ZIL','WTC','DASH',
+'LSK','ENG','ZRX','XEM','ZEC','XZC','PPT','ARK',
+'OST','BTS','GAS','GTO','HSR','FUN',
+'LRC','BLZ','KMD','KNC','AE','BCD','SYS',
+'VIA','GXS','RLC',
+'AST','STORJ','PIVX','BNT','MANA'
 ]
 
 
@@ -76,7 +73,54 @@ coin_dict = {
     'IOTA': 'IOT',
     'LTC': 'Litecoin',
     'VEN': 'VeChain',
-    'XMR': 'Monero'
+    'XMR': 'Monero',
+    'ETC': 'Ethereum Classic',
+    'OMG': 'OmiseGO',
+    'WAN': 'Wanchain',
+    'QTUM': 'Qtum',
+    'ELF': 'aelf',
+    'AION': 'Aion',
+    'LINK': 'ChainLink',
+    'SNT': 'Status',
+    'WAVES': 'Waves',
+    'BTG': 'Bitcoin Gold',
+    'STRAT': 'Stratis',
+    'NULS': 'Nuls',
+    'SALT': 'SALT',
+    'STEEM': 'Steem',
+    'DGD': 'DigixDAO',
+    'ZIL': 'Zilliqa',
+    'WTC': 'Waltonchain',
+    'DASH': 'Dash',
+    'LSK': 'Lisk',
+    'ENG': 'Enigma',
+    'ZRX': '0x',
+    'XEM': 'NEM',
+    'ZEC': 'Zcash',
+    'XZC': 'ZCoin',
+    'PPT': 'Populous',
+    'ARK': 'Ark',
+    'OST': 'IOST',
+    'BTS': 'BitShares',
+    'GAS': 'Gas',
+    'GTO': 'Gifto',
+    'HSR': 'Hshare',
+    'FUN': 'FunFair',
+    'LRC': 'Loopring',
+    'BLZ': 'Bluzelle',
+    'KMD': 'Komodo',
+    'KNC': 'Kyber Network',
+    'AE': 'Aeternity',
+    'BCD': 'Bitcoin Diamond',
+    'SYS': 'Syscoin',
+    'VIA': 'Viacoin',
+    'GXS': 'GXChain',
+    'RLC': 'iExec',
+    'AST': 'Elastos',
+    'STORJ': 'Storj',
+    'PIVX': 'PIVX',
+    'BNT': 'Bancor',
+    'MANA': 'Decentraland'
     }
 
 for coin in coins:
