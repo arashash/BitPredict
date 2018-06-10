@@ -12,16 +12,16 @@ import pandas as pd
 from textblob import TextBlob
 
 # first setting up the proxies in order to not get blocked by APIs
-os.system('export http_proxy="http://<proxy>:<port>"')
-os.system('export HTTP_PROXY="http://<proxy>:<port>"')
-os.system('export https_proxy="http://<proxy>:<port>"')
-os.system('export HTTPS_PROXY="http://<proxy>:<port>"')
+#os.system('export http_proxy="http://<proxy>:<port>"')
+#os.system('export HTTP_PROXY="http://<proxy>:<port>"')
+#os.system('export https_proxy="http://<proxy>:<port>"')
+#os.system('export HTTPS_PROXY="http://<proxy>:<port>"')
 
-proxy = 'http://195.201.97.32:8888'
-os.environ['http_proxy'] = proxy
-os.environ['HTTP_PROXY'] = proxy
-os.environ['https_proxy'] = proxy
-os.environ['HTTPS_PROXY'] = proxy
+#proxy = 'http://94.130.14.146:31288'
+#os.environ['http_proxy'] = proxy
+#os.environ['HTTP_PROXY'] = proxy
+#os.environ['https_proxy'] = proxy
+#os.environ['HTTPS_PROXY'] = proxy
 
 
 from pytrends.request import TrendReq
@@ -37,7 +37,7 @@ client = Client(api_key, api_secret)
 
 
 start_date = datetime(2018, 1, 1, 0, 0)
-end_date = datetime(2018, 6, 1, 0, 0)
+end_date = datetime(2018, 1, 8, 0, 0)
 
 
 coins = [
@@ -167,8 +167,7 @@ for coin in coins:
             except:
                 print('File does not exist!')
             # get Twitter sentiments
-            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s %s" --since %s --until %s --output ./data/%s_tweets.csv'%(coin_dict[coin],
-                                                                                                                             coin,
+            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s" --since %s --until %s --output ./data/%s_tweets.csv'%('$'+coin,
                                                                                                                              start_date.strftime("%Y-%m-%d"),
                                                                                                                              end_date.strftime("%Y-%m-%d"),
                                                                                                                              coin))
