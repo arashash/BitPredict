@@ -17,7 +17,7 @@ from textblob import TextBlob
 #os.system('export https_proxy="http://<proxy>:<port>"')
 #os.system('export HTTPS_PROXY="http://<proxy>:<port>"')
 
-#proxy = 'http://94.130.14.146:31288'
+#proxy = 'http://35.199.76.79:80'
 #os.environ['http_proxy'] = proxy
 #os.environ['HTTP_PROXY'] = proxy
 #os.environ['https_proxy'] = proxy
@@ -36,8 +36,8 @@ api_secret = 'Ps0tL8vZJyUGFdDl6C5FbYnroSi4j0kOEYa2OlLGu5vZLx6NVyc1EsgJdlgZOApR'
 client = Client(api_key, api_secret)
 
 
-start_date = datetime(2018, 1, 1, 0, 0)
-end_date = datetime(2018, 1, 8, 0, 0)
+start_date = datetime(2018, 4, 1, 0, 0)
+end_date = datetime(2018, 6, 1, 0, 0)
 
 
 coins = [
@@ -48,10 +48,10 @@ coins = [
 'LINK','SNT','WAVES','BTG','STRAT','NULS',
 'SALT','STEEM','DGD','ZIL','WTC','DASH',
 'LSK','ENG','ZRX','XEM','ZEC','XZC','PPT','ARK',
-'OST','BTS','GAS','GTO','HSR','FUN',
+'BTS','GAS','GTO','HSR','FUN',
 'LRC','BLZ','KMD','KNC','AE','BCD','SYS',
-'VIA','GXS','RLC',
-'AST','STORJ','PIVX','BNT','MANA'
+'VIA','RLC',
+'STORJ','PIVX','BNT','MANA'
 ]
 
 
@@ -100,7 +100,6 @@ coin_dict = {
     'XZC': 'ZCoin',
     'PPT': 'Populous',
     'ARK': 'Ark',
-    'OST': 'IOST',
     'BTS': 'BitShares',
     'GAS': 'Gas',
     'GTO': 'Gifto',
@@ -114,9 +113,7 @@ coin_dict = {
     'BCD': 'Bitcoin Diamond',
     'SYS': 'Syscoin',
     'VIA': 'Viacoin',
-    'GXS': 'GXChain',
     'RLC': 'iExec',
-    'AST': 'Elastos',
     'STORJ': 'Storj',
     'PIVX': 'PIVX',
     'BNT': 'Bancor',
@@ -167,7 +164,7 @@ for coin in coins:
             except:
                 print('File does not exist!')
             # get Twitter sentiments
-            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s" --since %s --until %s --output ./data/%s_tweets.csv'%('$'+coin,
+            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s" --since %s --until %s --output ./data/%s_tweets.csv --maxtweets 100000000 --toptweets'%(searchQuery,
                                                                                                                              start_date.strftime("%Y-%m-%d"),
                                                                                                                              end_date.strftime("%Y-%m-%d"),
                                                                                                                              coin))
