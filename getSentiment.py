@@ -107,12 +107,9 @@ while(True):
         print(coin)
         searchQuery = coin_dict[coin]+' '+coin
         # get Twitter sentiments
-        try:
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_today_tweets.csv'%coin)
-        except:
-            os.system('python ./GetOldTweets/Exporter.py --querysearch "%s" --since %s --output ./data/%s_today_tweets.csv'%(searchQuery,start_date.strftime("%Y-%m-%d"),coin))
-            twData = pd.read_csv('/home/arash/BitPredict/data/%s_today_tweets.csv'%coin)
-            os.system('rm /home/arash/BitPredict/data/%s_today_tweets.csv'%coin)
+        os.system('python ./GetOldTweets/Exporter.py --querysearch "%s" --since %s --output ./data/%s_today_tweets.csv'%(searchQuery,start_date.strftime("%Y-%m-%d"),coin))
+        twData = pd.read_csv('/home/arash/BitPredict/data/%s_today_tweets.csv'%coin)
+        os.system('rm /home/arash/BitPredict/data/%s_today_tweets.csv'%coin)
 
         twData['sentiment'] = np.zeros(len(twData))
         for index, row in twData.iterrows():
