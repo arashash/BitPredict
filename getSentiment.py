@@ -1,7 +1,9 @@
 import os
 import time
+
 import numpy as np
 import pandas as pd
+from datetime import datetime
 from textblob import TextBlob
 
 from df2gspread import df2gspread as d2g
@@ -92,12 +94,6 @@ coin_dict = {
 
 
 
-
-
-from datetime import datetime
-
-
-
 while(True):
     nowDate = datetime.now()
     UTC_OFFSET_TIMEDELTA = datetime.utcnow() - datetime.now()
@@ -130,12 +126,12 @@ while(True):
             	print('Got invalid row!')
 
         	# convert to utc time
-        	local_datetime = datetime.strptime(row['date'], "%Y-%m-%d %H:%M")
-        	result_utc_datetime = local_datetime + UTC_OFFSET_TIMEDELTA
-        	result_utc_str = result_utc_datetime.strftime("%Y-%m-%d %H:%M")
+            local_datetime = datetime.strptime(row['date'], "%Y-%m-%d %H:%M")
+            result_utc_datetime = local_datetime + UTC_OFFSET_TIMEDELTA
+            result_utc_str = result_utc_datetime.strftime("%Y-%m-%d %H:%M")
 
         	# round down to the nearest hour
-        	twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
+            twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
 
             # group and average over hourly dates
             sub_twData = twData.groupby('date').mean()[['sentiment']]
