@@ -131,7 +131,7 @@ while(True):
             twData.ix[index, 'date'] = result_utc_str[:-2]+'00:00'
 
             # group and average over hourly dates
-            sub_twData = twData.groupby('date').mean()[['sentiment']]
+            sub_twData = twData.groupby('date').sum()[['sentiment']]
 
             if coin == 'BTC':
                 sentiments = sub_twData
@@ -141,7 +141,7 @@ while(True):
     sentiments = sentiments.fillna(0)
 
     # get average of sentimets over hours of today
-    avgSentiments = pd.DataFrame(sentiments.mean(axis=0).sort_values(ascending=False))
+    avgSentiments = pd.DataFrame(sentiments.sum(axis=0).sort_values(ascending=False))
     d2g.upload(avgSentiments, spreadsheet, 'avgSentiments')
     print(avgSentiments.head())
 
