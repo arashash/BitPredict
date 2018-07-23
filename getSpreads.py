@@ -32,4 +32,4 @@ while(True):
     maxCoin = max(spreads, key=spreads.get)
     maxSpread = spreads[maxCoin]
 
-    print '%s : %.2f'%(maxCoin, maxSpread)
+    print('%s : %.2f'%(maxCoin, maxSpread))
